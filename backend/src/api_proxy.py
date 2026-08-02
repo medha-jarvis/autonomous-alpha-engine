@@ -76,27 +76,46 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
         # /api/stocks - list all portfolio stocks with transcript counts
         if path == "/api/stocks":
             try:
-                params = "q=*&query_by=ticker&per_page=100&facet_by=ticker&max_facet_values=100"
+                from collections import Counter
+                from config import config
+                stocks_list = list(config.portfolio_stocks.keys())
+                
+                # Use Typesense aggregation to count docs per ticker efficiently
+                # Search once with high per_page and facet by ticker
+                params = "q=*&query_by=ticker&per_page=250&facet_by=ticker&max_facet_values=100"
                 req = urllib.request.Request(
                     f"{TYPESENSE_URL}/collections/concall_transcripts/documents/search?{params}")
                 req.add_header("X-TYPESENSE-API-KEY", self._get_ts_key())
                 resp = urllib.request.urlopen(req, timeout=10)
                 data = json.loads(resp.read())
-
-                # Count transcripts per ticker
-                from collections import Counter
-                from config import config
-                stocks_list = list(config.portfolio_stocks.keys())
-                hits = data.get("hits", [])
-                tickers_found = []
-                for h in hits:
-                    doc = h.get("document", {})
-                    t = doc.get("ticker", "")
-                    if t:
-                        tickers_found.append(t)
-                counts = Counter(tickers_found)
-                stocks = [{"ticker": s, "transcripts": counts.get(s, 0)} for s in stocks_list]
-                self._send({"stocks": stocks, "total": len(stocks)})
+                
+                # Build counts from facets (accurate totals from Typesense)
+                counts = {}
+                total_found = data.get("found", 0)
+                if total_found > 250:
+                    # For large collections, count per-ticker using found count
+                    # Use facet counts instead
+                    for f in data.get("facet_counts", []):
+                        for v in f.get("counts", []):
+                            counts[v["value"]] = v["count"]
+                else:
+                    # Small collection: count from hits directly
+                    hits = data.get("hits", [])
+                    tickers_found = [h.get("document", {}).get("ticker", "") for h in hits]
+                    counts = dict(Counter(tickers_found))
+                
+                stocks = []
+                total = 0
+                for s in stocks_list:
+                    c = counts.get(s, 0)
+                    stocks.append({"ticker": s, "transcripts": c})
+                    total += c
+                
+                # Update total if we used facets
+                if total_found > 250 and counts:
+                    total = total_found
+                
+                self._send({"stocks": stocks, "total": total})
             except Exception as e:
                 self._send({"stocks": [], "error": str(e)})
             return
