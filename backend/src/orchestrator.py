@@ -180,8 +180,13 @@ class AlphaEngine:
 
         return quarter, fiscal_year
 
-    def poll_and_process(self) -> list[dict[str, Any]]:
+    def poll_and_process(
+        self, max_transcripts: int = 0,
+    ) -> list[dict[str, Any]]:
         """Main pipeline: poll BSE → process new → index → evaluate → alert.
+
+        ``max_transcripts`` caps how many announcements to process this run
+        so the script stays within the cron timeout budget (default 0 = no limit).
 
         Returns a list of processing results.
         """
@@ -193,7 +198,14 @@ class AlphaEngine:
         new_announcements = self.bse.check_for_new_transcripts(processed_ids, days_back=15)
         logger.info("Found %d new announcements", len(new_announcements))
 
-        for ann in new_announcements:
+        to_process = (
+            new_announcements[:max_transcripts]
+            if max_transcripts > 0
+            else new_announcements
+        )
+        remaining = len(new_announcements) - len(to_process)
+
+        for ann in to_process:
             ticker = ann["ticker"]
             news_id = ann["news_id"]
             result = self._process_single(ann)
@@ -201,6 +213,11 @@ class AlphaEngine:
 
         if not new_announcements:
             logger.info("No new announcements to process")
+        elif remaining:
+            logger.info(
+                "Processed %d this cycle, %d remaining for next run",
+                len(to_process), remaining,
+            )
 
         return results
 
@@ -243,7 +260,7 @@ class AlphaEngine:
                 "news_id": news_id,
                 "company_name": company_name,
                 "ticker": ticker,
-                "bse_scrip_code": self.bse.get_scrip_code(ticker),
+                "bse_scrip_code": int(self.bse.get_scrip_code(ticker)),
                 "quarter": quarter,
                 "fiscal_year": fiscal_year,
                 "announcement_date": ann["announcement_date"],
@@ -360,15 +377,19 @@ class AlphaEngine:
 
 
 # ── Entry point for cron job ─────────────────────────────────────
-def run_poll() -> None:
-    """Entry point called by the cron job."""
+def run_poll(max_transcripts: int = 0) -> None:
+    """Entry point called by the cron job.
+
+    ``max_transcripts`` caps how many announcements to process per run
+    (default 0 = no limit).
+    """
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
     engine = AlphaEngine()
     ensure_collections(engine.ts)
-    results = engine.poll_and_process()
+    results = engine.poll_and_process(max_transcripts=max_transcripts)
 
     triggered = [r for r in results if r.get("alerts")]
     logger.info(
@@ -391,7 +412,12 @@ def run_backfill() -> None:
 
 if __name__ == "__main__":
     import sys
-    if len(sys.argv) > 1 and sys.argv[1] == "backfill":
+    max_transcripts = 0
+    args = [a for a in sys.argv[1:] if not a.startswith("--max")]
+    for a in sys.argv[1:]:
+        if a.startswith("--max-transcripts="):
+            max_transcripts = int(a.split("=")[1])
+    if len(args) > 0 and args[0] == "backfill":
         run_backfill()
     else:
-        run_poll()
+        run_poll(max_transcripts=max_transcripts)
