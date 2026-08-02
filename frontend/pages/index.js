@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 
+const API = process.env.NEXT_PUBLIC_TUNNEL_URL || 'https://known-zones-responsibility-even.trycloudflare.com';
+
 export default function Dashboard() {
   const [stocks, setStocks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -7,7 +9,7 @@ export default function Dashboard() {
   const [searchResults, setSearchResults] = useState(null);
 
   useEffect(() => {
-    fetch('/api/stocks')
+    fetch(`${API}/api/stocks`)
       .then(r => r.json())
       .then(d => { setStocks(d.stocks || []); setLoading(false); })
       .catch(() => setLoading(false));
@@ -16,7 +18,7 @@ export default function Dashboard() {
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
-    const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}&limit=10`);
+    const res = await fetch(`${API}/api/search?q=${encodeURIComponent(searchQuery)}&limit=10`);
     const data = await res.json();
     setSearchResults(data);
   };
@@ -25,7 +27,7 @@ export default function Dashboard() {
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: 20, fontFamily: 'system-ui, sans-serif' }}>
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>🤖 Autonomous Alpha Engine</h1>
       <p style={{ color: '#666', marginBottom: 24 }}>
-        Concall transcript intelligence pipeline — {stocks.length} stocks tracked
+        Concall transcript intelligence pipeline — {stocks.length} stocks tracked · {stocks.reduce((a,s) => a + (s.transcript_count||0), 0)} documents indexed
       </p>
 
       {/* Search */}
@@ -70,8 +72,8 @@ export default function Dashboard() {
               <div style={{ color: '#475569', fontSize: 14, marginTop: 4 }}>
                 {(hit.document.full_text || '').substring(0, 300)}...
               </div>
-              {hit.document.pdf_url_r2 && (
-                <a href={hit.document.pdf_url_r2} target="_blank" rel="noopener"
+              {hit.document.pdf_url_bse && (
+                <a href={hit.document.pdf_url_bse} target="_blank" rel="noopener"
                    style={{ fontSize: 13, color: '#2563eb', marginTop: 4, display: 'inline-block' }}>
                   📄 View Full Transcript
                 </a>

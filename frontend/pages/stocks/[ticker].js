@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 
+const API = process.env.NEXT_PUBLIC_TUNNEL_URL || 'https://known-zones-responsibility-even.trycloudflare.com';
+
 export default function StockDetail() {
   const router = useRouter();
   const { ticker } = router.query;
@@ -9,7 +11,8 @@ export default function StockDetail() {
 
   useEffect(() => {
     if (!ticker) return;
-    fetch(`/api/evaluations?ticker=${ticker}`)
+    const params = new URLSearchParams({ ticker });
+    fetch(`${API}/api/evaluations?${params}`)
       .then(r => r.json())
       .then(d => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
