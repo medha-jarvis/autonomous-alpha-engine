@@ -19,6 +19,7 @@ dotenv.load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 from config import Config, lookup_scrip_code  # noqa: E402
 from bse_client import BSEClient  # noqa: E402
+from nse_client import fetch_announcements as nse_fetch  # noqa: E402
 from pdf_processor import download_and_process  # noqa: E402
 from typesense_client import (  # noqa: E402
     TypesenseClient,
@@ -196,14 +197,36 @@ class AlphaEngine:
         # Step 1: Poll BSE for new transcripts
         logger.info("Polling BSE for new announcements...")
         new_announcements = self.bse.check_for_new_transcripts(processed_ids, days_back=15)
-        logger.info("Found %d new announcements", len(new_announcements))
+        logger.info("Found %d new announcements from BSE", len(new_announcements))
+
+        # Step 1b: Also poll NSE for new transcripts
+        logger.info("Polling NSE for new announcements...")
+        nse_new = []
+        for ticker in self.config.portfolio_stocks:
+            anns = nse_fetch(ticker, from_date=(datetime.now() - timedelta(days=15)).strftime("%d-%m-%Y"))
+            for ann in anns:
+                if ann.news_id not in processed_ids:
+                    nse_new.append({
+                        "news_id": ann.news_id,
+                        "ticker": ticker,
+                        "company_name": ann.company_name,
+                        "subcategory": ann.doc_type,
+                        "announcement_date": ann.announcement_date,
+                        "attachment_name": ann.pdf_url.split("/")[-1],
+                        "pdf_url_bse": ann.pdf_url,
+                        "source": "NSE",
+                    })
+        logger.info("Found %d new announcements from NSE", len(nse_new))
+
+        # Merge: NSE first (richer content), then BSE
+        all_new = nse_new + new_announcements
 
         to_process = (
-            new_announcements[:max_transcripts]
+            all_new[:max_transcripts]
             if max_transcripts > 0
-            else new_announcements
+            else all_new
         )
-        remaining = len(new_announcements) - len(to_process)
+        remaining = len(all_new) - len(to_process)
 
         for ann in to_process:
             ticker = ann["ticker"]
@@ -211,7 +234,7 @@ class AlphaEngine:
             result = self._process_single(ann)
             results.append(result)
 
-        if not new_announcements:
+        if not all_new:
             logger.info("No new announcements to process")
         elif remaining:
             logger.info(

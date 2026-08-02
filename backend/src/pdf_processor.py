@@ -46,9 +46,8 @@ def download_pdf(announcement: dict, dest_dir: str | None = None) -> bytes:
         pdf_bytes = resp.read()
 
     logger.info(
-        "Downloaded PDF for %s (%s): %d bytes",
-        announcement["ticker"],
-        announcement["news_id"][:8],
+        "Downloaded PDF%s: %d bytes",
+        f" for {announcement.get('ticker', '?')} ({announcement.get('news_id', '?')[:8]})" if "ticker" in announcement else "",
         len(pdf_bytes),
     )
     return pdf_bytes
