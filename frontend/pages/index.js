@@ -27,7 +27,7 @@ export default function Dashboard() {
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: 20, fontFamily: 'system-ui, sans-serif' }}>
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>🤖 Autonomous Alpha Engine</h1>
       <p style={{ color: '#666', marginBottom: 24 }}>
-        Concall transcript intelligence pipeline — {stocks.length} stocks tracked · {stocks.reduce((a,s) => a + (s.transcript_count||0), 0)} documents indexed
+        Concall transcript intelligence pipeline — {stocks.length} stocks tracked · {stocks.reduce((a,s) => a + (s.transcripts||0), 0)} documents indexed
       </p>
 
       {/* Search */}
@@ -104,8 +104,8 @@ export default function Dashboard() {
             >
               <div style={{ fontWeight: 700, fontSize: 16 }}>{s.ticker}</div>
               <div style={{ fontSize: 13, color: '#666', marginTop: 4 }}>
-                {s.transcript_count > 0
-                  ? `📄 ${s.transcript_count} transcript(s) · Latest: ${s.latest || 'N/A'}`
+                {s.transcripts > 0
+                  ? `📄 ${s.transcripts} doc(s)`
                   : '⏳ No transcripts indexed yet'}
               </div>
             </a>
