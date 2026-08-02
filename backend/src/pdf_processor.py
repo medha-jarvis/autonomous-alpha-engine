@@ -31,21 +31,18 @@ class ProcessedTranscript:
 def download_pdf(announcement: dict, dest_dir: str | None = None) -> bytes:
     """Download the PDF attachment from BSE servers.
 
-    Returns the raw PDF bytes.
+    Returns the raw PDF bytes. Raises HTTPError on 404 (file removed).
     """
     pdf_url = announcement["pdf_url_bse"]
     req = urllib.request.Request(
         pdf_url,
         headers={
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36"
-            ),
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Referer": "https://www.bseindia.com/",
             "Accept": "application/pdf,*/*",
         },
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=15) as resp:
         pdf_bytes = resp.read()
 
     logger.info(

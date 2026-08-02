@@ -85,11 +85,8 @@ class ProxyHandler(http.server.BaseHTTPRequestHandler):
 
                 # Count transcripts per ticker
                 from collections import Counter
-                stocks_list = ["INFY", "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "SBIN",
-                    "BHARTIARTL", "ITC", "KOTAKBANK", "LT", "AXISBANK", "BAJFINANCE",
-                    "MARUTI", "SUNPHARMA", "TITAN", "ASIANPAINT", "HCLTECH", "WIPRO",
-                    "ONGC", "NTPC", "POWERGRID", "ULTRACEMCO", "JSWSTEEL", "TRENT",
-                    "DMART", "ZOMATO", "HAL", "BEL", "IEX", "PIDILITIND", "SIEMENS"]
+                from config import config
+                stocks_list = list(config.portfolio_stocks.keys())
                 hits = data.get("hits", [])
                 tickers_found = []
                 for h in hits:
